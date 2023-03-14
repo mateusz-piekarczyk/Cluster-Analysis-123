@@ -1,38 +1,28 @@
 version: 2.1
 orbs:
-  python: circleci/python@2.0.3
-  heroku: circleci/heroku@1.2.6
+  python: circleci/python@2.0.3 # provides predefined jobs and commands
 
 jobs:
-  build_and_test: # this can be any name you choose
+  build_and_test: # prepare environment (name chosen)
     executor: python/default
     steps:
-      - checkout
-      - python/install-packages:
+      - checkout # predefined
+      - python/install-packages: # comes with the orb (inspect CircleCI for details)
           pkg-manager: pip
       - run:
-          name: Run tests
-          command: python -m pytest
-      - persist_to_workspace:
-          root: ~/project
-          paths:
-            - .
-
-  deploy: # this can be any name you choose
-    executor: python/default
-    steps:
-      - attach_workspace:
-          at: ~/project
-      - heroku/deploy-via-git:
-          force: true # force push when pushing to the heroku remote, see: https://devcenter.heroku.com/articles/git
+          name: install dependencies
+          command: pip install -r requirements.txt
+      - run:
+          name: download model binaries # requires external binaries
+          command: |
+            apt-get install wget
+            wget https://github.com/eyaler/word2vec-slim/raw/master/GoogleNews-vectors-negative300-SLIM.bin.gz
+            gzip -d GoogleNews-vectors-negative300-SLIM.bin.gz
+      - run:
+          name: test algorithm # run with minimal scope
+          command: python3 code/score.py --clustering_algo KMeans --vocab english_dict.txt --entities word2vec
 
 workflows:
-  test_my_app:
+  build_and_test:
     jobs:
-      - build_and_test
-      - deploy:
-          requires:
-            - build_and_test # only deploy if the build_and_test job has completed
-          filters:
-            branches:
-              only: main # only deploy when on main
+    - build_and_test
